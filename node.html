@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defense-Grade Server Monitoring Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #EAECF0FF;
+            color: #2f3240;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ==================== TOP NAVBAR ==================== */
+        .navbar {
+            background-color: #7994DCFF;
+            color: white;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            flex-shrink: 0;
+        }
+
+        .navbar h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .acknowledge-btn {
+            background-color: #4A5FD8FF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(74, 95, 216, 0.3);
+        }
+
+        .acknowledge-btn:hover {
+            background-color: #3D4FBC;
+            box-shadow: 0 4px 12px rgba(74, 95, 216, 0.5);
+        }
+
+        /* ==================== MAIN CONTENT ==================== */
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 18px 24px;
+            gap: 18px;
+            overflow: hidden;
+        }
+
+        /* ==================== ALERT BANNER ==================== */
+        .alert-banner {
+            background: linear-gradient(135deg, #FFE5E5FF 0%, #F5E9F0FF 100%);
+            border: 2px solid #E85D6CFF;
+            border-radius: 10px;
+            padding: 16px 20px;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(232, 93, 108, 0.15);
+            flex-shrink: 0;
+            height: 80px;
+        }
+
+        .alert-icon {
+            font-size: 36px;
+            flex-shrink: 0;
+            animation: pulse-icon 2s infinite;
+            justify-self: center;
+        }
+
+        @keyframes pulse-icon {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.08); }
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            color: #E85D6CFF;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        .alert-message {
+            color: #5A6B7F;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .alert-coordinates {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+            border-left: 3px solid #E85D6CFF;
+        }
+
+        .coord-item {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .coord-label {
+            font-size: 8px;
+            color: #7A8A9E;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 35px;
+        }
+
+        .coord-value {
+            font-size: 10px;
+            color: #2f3240;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* ==================== MAIN DASHBOARD LAYOUT ==================== */
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 0.6fr 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 16px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ==================== CARD BASE STYLING ==================== */
+        .card {
+            background-color: #C1CDEFFF;
+            border: 1px solid rgba(108, 120, 156, 0.12);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .card.critical {
+            border: 2px solid #E85D6CFF;
+            background: linear-gradient(135deg, #F5E9F0FF 0%, #E8EEFBFF 100%);
+            grid-column: span 1;
+            grid-row: span 1;
+        }
+
+        .card.graph-card {
+            grid-row: span 1;
+        }
+
+        .card-title {
+            font-size: 11px;
+            color: #5A6B7F;
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        /* ==================== CRITICAL STATUS (COMPACT) ==================== */
+        .status-display {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+            gap: 10px;
+        }
+
+        .status-label-small {
+            font-size: 9px;
+            color: #7A8A9E;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            font-size: 32px;
+            font-weight: 900;
+            color: #E85D6CFF;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 8px rgba(232, 93, 108, 0.2);
+            animation: glow-text 2.5s ease-in-out infinite;
+        }
+
+        @keyframes glow-text {
+            0%, 100% { text-shadow: 0 2px 8px rgba(232, 93, 108, 0.2); }
+            50% { text-shadow: 0 4px 16px rgba(232, 93, 108, 0.4); }
+        }
+
+        .directive-section {
+            background: rgba(232, 93, 108, 0.08);
+            border-left: 2px solid #E85D6CFF;
+            padding: 8px;
+            border-radius: 6px;
+            width: 100%;
+        }
+
+        .directive-title {
+            font-size: 8px;
+            color: #E85D6CFF;
+            font-weight: 700;
+            margin-bottom: 3px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .directive-text {
+            font-size: 9px;
+            color: #5A6B7F;
+            line-height: 1.3;
+        }
+
+        /* ==================== GRAPH CARDS ==================== */
+        .graph-container {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 100%;
+            width: 100%;
+        }
+
+        canvas {
+            max-width: 100% !important;
+        }
+
+        .sensor-label {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 8px;
+            color: #2f3240;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.6);
+            padding: 3px 6px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        /* ==================== VITALS CARDS ==================== */
+        .metric-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 8px;
+        }
+
+        .metric-value {
+            font-size: 36px;
+            color: #E85D6CFF;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-unit {
+            font-size: 12px;
+            color: #7A8A9E;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        /* ==================== PERCENTAGE CARD ==================== */
+        .percentage-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 10px;
+        }
+
+        .percentage-value {
+            font-size: 44px;
+            color: #4A7FD8FF;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+        }
+
+        .percentage-unit {
+            font-size: 12px;
+            color: #4A7FD8FF;
+            font-weight: 600;
+        }
+
+        .percentage-line {
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #4A7FD8FF, transparent);
+            margin-top: 6px;
+            border-radius: 2px;
+        }
+
+        /* ==================== GAUGE CARD ==================== */
+        .gauge-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tuc-gauge {
+            width: 85px;
+            height: 85px;
+            border-radius: 50%;
+            background: conic-gradient(from 180deg, #4A7FD8FF 0deg, #4A7FD8FF 60deg, #E85D6CFF 60deg, #E85D6CFF 180deg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(74, 127, 216, 0.25);
+        }
+
+        .tuc-gauge-inner {
+            width: 75px;
+            height: 75px;
+            background-color: #C1CDEFFF;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border: 1px solid rgba(108, 120, 156, 0.15);
+        }
+
+        .gauge-value {
+            font-size: 24px;
+            color: #2f3240;
+            font-weight: 900;
+            letter-spacing: 0.4px;
+        }
+
+        .gauge-label {
+            font-size: 7px;
+            color: #7A8A9E;
+            margin-top: 1px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* ==================== BATCH ID CARD ==================== */
+        .batch-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 10px;
+        }
+
+        .batch-value {
+            font-size: 28px;
+            color: #E85D6CFF;
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+
+        /* ==================== LOCATION CARD ==================== */
+        .location-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .location-item {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .location-item-label {
+            font-size: 8px;
+            color: #7A8A9E;
+            letter-spacing: 0.6px;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .location-item-value {
+            font-size: 11px;
+            color: #2f3240;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.2px;
+        }
+
+        /* ==================== RESPONSIVE DESIGN ==================== */
+        @media (max-width: 1400px) {
+            .dashboard-layout {
+                grid-template-columns: 0.6fr 1fr 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-layout {
+                grid-template-columns: 0.8fr 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- TOP NAVBAR -->
+    <div class="navbar">
+        <h1>🛡️ Defense Monitoring System</h1>
+        <button class="acknowledge-btn">ACKNOWLEDGE</button>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="container">
+        <!-- ALERT BANNER -->
+        <div class="alert-banner">
+            <div class="alert-icon">✅</div>
+            <div class="alert-content">
+                <div class="alert-title">STATUS: SAFE</div>
+                <div class="alert-message">All parameters nominal. Air quality excellent. Continuous monitoring active.</div>
+            </div>
+            <div class="alert-coordinates">
+                <div class="coord-item">
+                    <span class="coord-label">LAT:</span>
+                    <span class="coord-value">28.6139°N</span>
+                </div>
+                <div class="coord-item">
+                    <span class="coord-label">LONG:</span>
+                    <span class="coord-value">77.2090°E</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN DASHBOARD LAYOUT -->
+        <div class="dashboard-layout">
+            <!-- CRITICAL STATUS (Compact) -->
+            <div class="card critical">
+                <div class="card-title">Status</div>
+                <div class="status-display">
+                    <div class="status-label-small">Operator</div>
+                    <div class="status-indicator">CRITICAL</div>
+                    <div class="directive-section">
+                        <div class="directive-title">⚠️ Action</div>
+                        <div class="directive-text">Evacuate immediately</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MQ2 SENSOR GRAPH -->
+            <div class="card graph-card">
+                <div class="card-title">MQ2 Sensor</div>
+                <div class="sensor-label">ppm</div>
+                <div class="graph-container">
+                    <div class="chart-wrapper">
+                        <canvas id="chart-mq2"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MQ7 SENSOR GRAPH -->
+            <div class="card graph-card">
+                <div class="card-title">MQ7 Sensor (CO)</div>
+                <div class="sensor-label">ppm</div>
+                <div class="graph-container">
+                    <div class="chart-wrapper">
+                        <canvas id="chart-mq7"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MQ135 SENSOR GRAPH -->
+            <div class="card graph-card">
+                <div class="card-title">MQ135 Sensor</div>
+                <div class="sensor-label">ppm</div>
+                <div class="graph-container">
+                    <div class="chart-wrapper">
+                        <canvas id="chart-mq135"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HEART RATE CARD (Bottom Row) -->
+            <div class="card metric-card">
+                <div class="card-title">Heart Rate</div>
+                <div class="metric-value">118<span class="metric-unit">bpm</span></div>
+            </div>
+
+            <!-- SPO2 CARD (Bottom Row) -->
+            <div class="card percentage-card">
+                <div class="card-title">SpO₂</div>
+                <div class="percentage-value">96<span class="percentage-unit">%</span></div>
+                <div class="percentage-line"></div>
+            </div>
+
+            <!-- TUC GAUGE (Bottom Row) -->
+            <div class="card gauge-card">
+                <div class="card-title">Est. T.U.C.</div>
+                <div class="tuc-gauge">
+                    <div class="tuc-gauge-inner">
+                        <div class="gauge-value">15</div>
+                        <div class="gauge-label">min</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BATCH ID (Bottom Row) -->
+            <div class="card batch-card">
+                <div class="card-title">Batch ID</div>
+                <div class="batch-value">ED-1656</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHART.JS CONFIGURATION & SENSOR DATA -->
+    <script>
+        Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = '#7A8A9E';
+
+        // Sensor data storage
+        let sensorData = {
+            mq2: [],
+            mq7: [],
+            mq135: [],
+            timestamps: [],
+            riskScores: [],
+            survivalTimes: []
+        };
+
+        let charts = {};
+        let sampleCount = 0;
+
+        // Compute risk score based on sensor voltages
+        function computeRisk(mq2V, mq7V, mq135V) {
+            return 0.3 * mq2V + 0.4 * mq7V + 0.3 * mq135V;
+        }
+
+        // Get risk category
+        function riskCategory(score) {
+            if (score < 0.4) return "Safe";
+            else if (score < 0.7) return "Caution";
+            else return "Danger";
+        }
+
+        // Convert raw ADC value to PPM (simulated conversion)
+        function rawToPPM(rawValue) {
+            // Simulated conversion: raw value (0-4095) to PPM (0-1200)
+            return (rawValue / 4095.0) * 1200;
+        }
+
+        // Process incoming sensor data
+        function processSensorData(mq2Raw, mq7Raw, mq135Raw, timestamp) {
+            sampleCount++;
+            const currentTime = timestamp;
+
+            // Convert raw values to voltages
+            const mq2V = mq2Raw * (3.3 / 4095.0);
+            const mq7V = mq7Raw * (3.3 / 4095.0);
+            const mq135V = mq135Raw * (3.3 / 4095.0);
+
+            // Convert to PPM
+            const mq2PPM = rawToPPM(mq2Raw);
+            const mq7PPM = rawToPPM(mq7Raw);
+            const mq135PPM = rawToPPM(mq135Raw);
+
+            // Calculate risk
+            const riskScore = computeRisk(mq2V, mq7V, mq135V);
+            const riskCat = riskCategory(riskScore);
+            const survivalTime = 120 * (1 - Math.max(0, riskScore));
+
+            // Store data
+            sensorData.mq2.push(mq2PPM);
+            sensorData.mq7.push(mq7PPM);
+            sensorData.mq135.push(mq135PPM);
+            sensorData.timestamps.push(currentTime);
+            sensorData.riskScores.push(riskScore);
+            sensorData.survivalTimes.push(survivalTime);
+
+            // Keep only last 20 samples for performance
+            if (sensorData.mq2.length > 20) {
+                sensorData.mq2.shift();
+                sensorData.mq7.shift();
+                sensorData.mq135.shift();
+                sensorData.timestamps.shift();
+            }
+
+            // Update charts
+            updateCharts();
+
+            // Update vitals
+            updateVitals(mq2PPM, mq7PPM, mq135PPM, riskScore, survivalTime, riskCat);
+        }
+
+        // Update chart data
+        function updateCharts() {
+            charts.mq2.data.labels = sensorData.timestamps;
+            charts.mq2.data.datasets[0].data = sensorData.mq2;
+            charts.mq2.update('none');
+
+            charts.mq7.data.labels = sensorData.timestamps;
+            charts.mq7.data.datasets[0].data = sensorData.mq7;
+            charts.mq7.update('none');
+
+            charts.mq135.data.labels = sensorData.timestamps;
+            charts.mq135.data.datasets[0].data = sensorData.mq135;
+            charts.mq135.update('none');
+        }
+
+        // Update vital displays
+        function updateVitals(mq2PPM, mq7PPM, mq135PPM, riskScore, survivalTime, riskCat) {
+            // Update heart rate (correlated with CO levels for demo)
+            const heartRate = Math.min(180, 60 + (riskScore * 100));
+            document.querySelector('.metric-value').textContent = Math.round(heartRate).toString().padStart(3, ' ');
+
+            // Update SpO2 (inverse of risk)
+            const spo2 = Math.max(70, 98 - (riskScore * 30));
+            document.querySelector('.percentage-value').textContent = Math.round(spo2);
+
+            // Update TUC gauge
+            const tucPercentage = Math.max(0, Math.min(100, (survivalTime / 120) * 100));
+            const gaugeInner = document.querySelector('.tuc-gauge-inner');
+            gaugeInner.style.background = `conic-gradient(from 180deg, #4A7FD8FF 0deg, #4A7FD8FF ${tucPercentage}%, #E85D6CFF ${tucPercentage}%, #E85D6CFF 180deg)`;
+            document.querySelector('.gauge-value').textContent = Math.round(survivalTime);
+
+            // Update alert status based on risk
+            const alertBanner = document.querySelector('.alert-banner');
+            const statusIndicator = document.querySelector('.status-indicator');
+            if (riskScore > 0.7) {
+                alertBanner.style.background = 'linear-gradient(135deg, #FFE5E5FF 0%, #F5E9F0FF 100%)';
+                statusIndicator.textContent = 'DANGER';
+                statusIndicator.style.color = '#E85D6CFF';
+                sendWarning("Node1", "Danger level critical");
+            } else if (riskScore > 0.4) {
+                alertBanner.style.background = 'linear-gradient(135deg, #FFF5E5FF 0%, #F5F0E9FF 100%)';
+                statusIndicator.textContent = 'CAUTION';
+                statusIndicator.style.color = '#F5A623FF';
+            } else {
+                alertBanner.style.background = 'linear-gradient(135deg, #E5F5FFFF 0%, #E9F0F5FF 100%)';
+                statusIndicator.textContent = 'SAFE';
+                statusIndicator.style.color = '#4A7FD8FF';
+            }
+        }
+
+        async function sendWarning(device_id, warning) {
+            try {
+                const res = await fetch("http://localhost:5000/sendwarning", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ device_id, warning })
+                });
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${text}`);
+                }
+
+                const data = await res.json();
+                console.log("✅ Warning sent:", data.message);
+            } catch (err) {
+                console.error("❌ Failed to send warning:", err);
+            }
+        }
+
+
+        const createChartConfig = (borderColor, backgroundColor) => ({
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 1200,
+                        grid: { color: 'rgba(108, 120, 156, 0.08)' },
+                        ticks: { color: '#7A8A9E', font: { size: 9 }, stepSize: 300 }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#7A8A9E', font: { size: 8 } }
+                    }
+                }
+            },
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    borderColor: borderColor,
+                    backgroundColor: backgroundColor,
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointBackgroundColor: borderColor,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5
+                }]
+            }
+        });
+
+        // Initialize Charts
+        const ctxMQ2 = document.getElementById('chart-mq2').getContext('2d');
+        charts.mq2 = new Chart(ctxMQ2, createChartConfig('#E85D6CFF', 'rgba(232, 93, 108, 0.1)'));
+
+        const ctxMQ7 = document.getElementById('chart-mq7').getContext('2d');
+        charts.mq7 = new Chart(ctxMQ7, createChartConfig('#F5A623FF', 'rgba(245, 166, 35, 0.1)'));
+
+        const ctxMQ135 = document.getElementById('chart-mq135').getContext('2d');
+        charts.mq135 = new Chart(ctxMQ135, createChartConfig('#4A7FD8FF', 'rgba(74, 127, 216, 0.1)'));
+
+
+        let lasttime = null;
+        // Simulate real-time sensor data (remove/modify for actual serial connection)
+        async function simulateSensorData() {
+            // Safe range: Keep values in low range (200-600 raw = ~60-180 ppm)
+            const url = "http://localhost:5000/getdata";
+
+
+            try {
+                const res = await fetch(url);
+                 if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`HTTP ${res.status}\n\n${text}`);
+                }
+
+                const data = await res.json();
+
+                const entries = Array.isArray(data) ? data : [data];
+
+                // Sort by timestamp just in case backend sends unsorted data
+                entries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+                for (const entry of entries) {
+                    const timestamp = new Date(entry.timestamp);
+
+                    // Skip if same as last processed
+                    if (lasttime && timestamp.getTime() <= lasttime.getTime()) continue;
+
+                    const field1 = Math.round(entry.value1 ?? 0);
+                    const field2 = Math.round(entry.value2 ?? 0);
+                    const field3 = Math.round(entry.value3 ?? 0);
+                    const timestampStr = timestamp.toLocaleTimeString('en-US', { hour12: false });
+
+                    processSensorData(field1, field2, field3, timestampStr);
+
+                    // Update last processed timestamp
+                    lasttime = timestamp;
+                }
+
+            } catch (err) {
+                console.error("sensorData() fetch failed:", err);
+            }
+        }
+        simulateSensorData();
+        // Start simulation - Update every 5 seconds
+        setInterval(simulateSensorData, 5000);
+    </script>
+</body>

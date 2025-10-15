@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensors Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/material-design-icons/4.0.0/iconfont/material-icons.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #EAECF0FF;
+            color: #2f3240;
+            padding: 20px;
+        }
+        .container {
+            max-width: none;
+            margin: 0 auto;
+        }
+
+        /* Top Navigation */
+        .navbar {
+            background-color: #7994DCFF;
+            color: white;
+            padding: 0 20px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar h1 {
+            font-size: 24px;
+            font-weight: 500;
+        }
+
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown select {
+            background-color: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .dropdown select option {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 22px;
+            padding: 18px 0 6px 0;
+            min-height: 560px;
+            height: calc(100vh - 64px);
+        }
+
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: #E8EEF8;
+            border-radius: 12px;
+            box-shadow: none;
+            background-color: #C1CDEFFF;
+            overflow: visible;
+            border: 1px solid rgba(108,120,156,0.08);
+        }
+
+        .card-header {
+            padding: 18px 20px;
+            border-bottom:none;
+            font-weight: 700;
+            font-size: 15px;
+            display: inline-block;
+            align-items: center;
+            border-radius: 10px;
+            /*color: #2b334a;*/
+            justify-content: space-between;
+        }
+
+        .card-content {
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0 10px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 13px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            font-weight: 500;
+            font-size: 14px;
+            color: #666;
+        }
+
+        td {
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        /* Status indicators */
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-active { background-color: #4CAF50; }
+        .status-warning { background-color: #FF9800; }
+        .status-danger { background-color: #f44336; }
+        .status-inactive { background-color: #9E9E9E; }
+
+        /* Severity badges */
+        .severity {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .severity-high { background-color: #ffebee; color: #c62828; }
+        .severity-medium { background-color: #fff3e0; color: #ef6c00; }
+        .severity-low { background-color: #e8f5e8; color: #2e7d32; }
+
+        /* Action icons */
+        .action-icons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-icon {
+            color: #666;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 6px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.03);
+            transition: background-color 0.2s;
+        }
+
+        .action-icon:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* Map */
+        .map-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            height: 100%;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Custom map markers */
+        .custom-marker {
+            background-color: #4CAF50;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .custom-marker.warning {
+            background-color: #FF9800;
+        }
+
+        .custom-marker.error {
+            background-color: #f44336;
+        }
+
+        .custom-marker.inactive {
+            background-color: #9E9E9E;
+        }
+
+        /* Search and filter */
+        .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-input {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .filter-icon {
+            color: #666;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .top-header {
+            background-color: #7994DCFF;  /* same lavender shade as in your image */
+            padding: 20px 30px;
+
+            width:infinity;
+            border-radius: 0 0 4px 4px;   /* smooth bot corners */
+            margin-bottom: 20px;
+            margin-left: -20px;
+            margin-right: -20px;
+            margin-top: -20px;
+        }
+        .top-header h2 {
+             font-size: 22px;
+             font-weight: 500;
+             color: #4a4f6d;   /* darker bluish text */
+            }
+        hr {
+                border: none;
+                border-top: 2px solid #EAECF0FF;
+                margin: 10px 0;
+            }
+
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 400px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .navbar {
+                padding: 0 15px;
+                flex-direction: column;
+                height: auto;
+                gap: 10px;
+                padding: 15px;
+            }
+
+            .main-content {
+                padding: 15px;
+                grid-template-rows: auto 300px;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+      <div class="top-header">
+    <h2>Monitoring Dashboard</h2>
+  </div>
+    <div class="hero-bar"></div>
+        
+        
+
+    <!-- Main Content -->
+    <div class="container main-wrapper">
+        <div class="main-content">
+           
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <!-- Sensors Card -->
+            <div class="card">
+                
+                <div class="card-header">
+                    <span>Sensors</span>
+                </div>
+                <hr>
+                <div class="card-content">
+                    <table id="sensorsTable">
+                        <thead>
+                            <tr>
+                                <th>Sensor Name</th>
+                                <th>Active</th>
+                                <th>MQ1</th>
+                                <th>MQ2</th>
+                                <th>MQ3</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sensorsTableBody">   
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Alarms Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Alarms</span>
+                </div>
+                <hr>
+                <div class="card-content">
+                    <table id="alarmsTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Warning</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alarmsTableBody">
+                            <!-- Alarm data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Map -->
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script>
+        // Sample sensor data 
+        let sensorsData = [];
+        let map;
+        let markersLayer; // group to hold markers
+        let alarmsData = [];
+        
+        async function sensorData(url) {
+            try {
+                const res = await fetch(url);
+                 if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`HTTP ${res.status}\n\n${text}`);
+                }
+
+                const data = await res.json();
+
+                // Handle both array and single object responses
+                const entry = Array.isArray(data) ? data[data.length - 1] : data;
+
+                const name = entry.device_id || "Unknown";
+                const field1 = entry.value1 ?? 0;
+                const field2 = entry.value2 ?? 0;
+                const field3 = entry.value3 ?? 0;
+                const time = new Date(entry.timestamp).toLocaleString();
+                const entryTime = new Date(entry.timestamp);
+                const now = new Date();
+
+                // Mark as inactive if data is too old
+                const diffMinutes = (now - entryTime) / 1000 / 60;
+                let status = diffMinutes <= 2 ? "active" : "inactive";
+
+                return {
+                    name: name,
+                    active: status,
+                    MQ1: field1,
+                    MQ2: field2,
+                    MQ3: field3,
+                    time: time,
+                    lat: 12.68276,
+                    lng: 77.71614,
+                };
+            } catch (err) {
+                console.error("sensorData() fetch failed:", err);
+                return {
+                    name: "Unknown",
+                    active: "error",
+                    MQ1: 0,
+                    MQ2: 0,
+                    MQ3: 0,
+                    time: "N/A",
+                    lat: 0,
+                    lng: 0
+                };
+            }
+        }
+
+        async function alarmData(url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`HTTP ${res.status}\n\n${text}`);
+                }
+
+                const data = await res.json();
+
+                // Ensure array
+                const entries = Array.isArray(data) ? data : [data];
+
+                // Sort by timestamp (newest first)
+                entries.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+                // Map each entry into a clean object
+                const alarms = entries.map(entry => {
+                    const timestamp = new Date(entry.time);
+                    return {
+                        name: entry.device_id || "Unknown",
+                        warning: entry.warning ?? "Unknown",
+                        time: timestamp.toLocaleTimeString('en-US', { hour12: false })
+                    };
+                });
+
+                return alarms; // <--- now returns full list of alarms
+            } catch (err) {
+                console.error("alarmData() fetch failed:", err);
+                return []; // empty list on failure
+            }
+        }
+
+
+        // Populate sensors table
+        function populateSensorsTable(sensorsData) {
+            const tbody = document.getElementById('sensorsTableBody');
+            tbody.innerHTML = '';
+            
+            sensorsData.forEach(sensor => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                <td><a href="node.html">${sensor.name}</a></td>
+                <td><span class="status-dot status-${sensor.active}"></span></td>
+                <td>${sensor.MQ1}</td>
+                <td>${sensor.MQ2}</td>
+                <td>${sensor.MQ3}</td>
+                <td>${sensor.time}</td>
+                `; 
+                tbody.appendChild(row);
+            });
+        }
+
+        // Populate alarms table
+        function populateAlarmsTable(alarmsData) {
+            const tbody = document.getElementById('alarmsTableBody');
+            tbody.innerHTML = '';
+            if (alarmsData.length > 0) {
+                alarmsData.forEach(alarm => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${alarm.name}</td>
+                        <td>${alarm.warning}</td>
+                        <td>${alarm.time}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="3" style="text-align:center; font-style:italic; color:#666;">
+                                    No active alarms
+                                </td>`;
+                tbody.appendChild(row);
+            }
+        }
+
+
+        function getMarkerColor(status) {
+            switch(status) {
+                case 'normal': return '#4CAF50';
+                case 'warning': return '#FF9800';
+                case 'danger': return '#f44336';
+                case 'inactive': return '#9E9E9E';
+                default: return '#4CAF50';
+            }
+        }
+
+        function initMap() {
+            if (!map) {
+                // Create map once
+                map = L.map('map').setView([12.68276, 77.71614], 20);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                markersLayer = L.layerGroup().addTo(map);
+            }
+        }
+
+        function updateMarkers(sensorsData) {
+            markersLayer.clearLayers(); // clear old markers
+
+            sensorsData.forEach(sensor => {
+                const markerColor = getMarkerColor(sensor.active); // use active/inactive
+                const customIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div class="custom-marker ${sensor.active}" style="background-color: ${markerColor};"></div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+
+                const marker = L.marker([sensor.lat, sensor.lng], { icon: customIcon }).addTo(markersLayer);
+
+                marker.bindPopup(`
+                    <div style="font-family: 'Segoe UI', sans-serif;">
+                        <h4 style="margin: 0 0 8px 0; color: #333;">${sensor.name}</h4>
+                        <p style="margin: 4px 0; font-size: 13px;"><strong>Status:</strong> ${sensor.active}</p>
+                        <p style="margin: 4px 0; font-size: 13px;"><strong>MQ1:</strong> ${sensor.MQ1}</p>
+                        <p style="margin: 4px 0; font-size: 13px;"><strong>MQ2:</strong> ${sensor.MQ2}</p>
+                        <p style="margin: 4px 0; font-size: 13px;"><strong>MQ3:</strong> ${sensor.MQ3}</p>
+                        <p style="margin: 4px 0; font-size: 13px;"><strong>Last Update:</strong> ${sensor.time}</p>
+                    </div>
+                `);
+            });
+        }
+
+
+        /**
+        function getMarkerColor(status) {
+            switch(status) {
+                case 'normal': return '#4CAF50';
+                case 'warning': return '#FF9800';
+                case 'error': return '#f44336';
+                case 'inactive': return '#9E9E9E';
+                default: return '#4CAF50';
+            }
+        }**/
+
+        // Search functionality
+
+        // Add click handlers for action icons
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('action-icon')) {
+                const action = e.target.textContent;
+                const row = e.target.closest('tr');
+                const itemName = row.cells[0].textContent;
+                
+                console.log(`${action} clicked for ${itemName}`);
+                // Add your action logic here
+            }
+        });
+
+        async function loadData() {
+            const url = "http://localhost:5000/getdata"; // replace with your endpoint
+            //const url = 'https://procrastinative-humbly-jimmie.ngrok-free.dev/getdata';
+            const sensor = await sensorData(url);
+            console.log(sensor);
+
+            const url2 = "http://localhost:5000/getwarning"; // replace with your endpoint
+            //const url2 = 'https://procrastinative-humbly-jimmie.ngrok-free.dev/getalarm';
+            const alarm = await alarmData(url2);
+            console.log(alarm);
+
+            // You can now use it anywhere
+            populateSensorsTable([sensor]);
+            populateAlarmsTable(alarm);
+            initMap();
+            updateMarkers([sensor]);
+        }
+
+
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            setInterval(loadData, 5000); // Refresh data every 5 seconds
+        });
+    </script>
+</body>
+</html>
