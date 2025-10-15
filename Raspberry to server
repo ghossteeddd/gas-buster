@@ -1,0 +1,103 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// WiFi Credentials
+const char* ssid = "SAIRAM";
+const char* password = "";
+
+// API endpoint
+const char* serverName = "https://procrastinative-humbly-jimmie.ngrok-free.dev/senddata";  // change this
+
+// Sensor pins
+const int mq2Pin = 33;    // MQ-2
+const int mq7Pin = 32;    // MQ-7
+const int mq135Pin = 34;  // MQ-135
+
+const int numSamples = 100;
+const float Tmax = 120.0;
+
+// --- Risk Computation ---
+float computeRisk(float mq2V, float mq7V, float mq135V) {
+  float mq2Norm = mq2V / 3.3;
+  float mq7Norm = mq7V / 3.3;
+  float mq135Norm = mq135V / 3.3;
+  return 0.3 * mq2Norm + 0.4 * mq7Norm + 0.3 * mq135Norm;
+}
+
+String riskCategory(float score) {
+  if (score < 0.4) return "Safe";
+  else if (score < 0.7) return "Caution";
+  else return "Danger";
+}
+
+// --- Setup ---
+void setup() {
+  Serial.begin(115200);
+  analogReadResolution(12);
+  delay(1000);
+
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected! IP: " + WiFi.localIP().toString());
+}
+
+// --- Loop ---
+void loop() {
+  for (int i = 1; i <= numSamples; i++) {
+    int mq2Raw = analogRead(mq2Pin);
+    int mq7Raw = analogRead(mq7Pin);
+    int mq135Raw = analogRead(mq135Pin);
+
+    float mq2V = mq2Raw * (3.3 / 4095.0);
+    float mq7V = mq7Raw * (3.3 / 4095.0);
+    float mq135V = mq135Raw * (3.3 / 4095.0);
+
+    float riskScore = computeRisk(mq2V, mq7V, mq135V);
+    String risk = riskCategory(riskScore);
+    float survivalTime = Tmax * (1 - riskScore);
+
+    // Create JSON payload
+    String jsonData = "{";
+    jsonData += "\"sample\":" + String(i) + ",";
+    jsonData += "\"mq2_raw\":" + String(mq2Raw) + ",";
+    jsonData += "\"mq2_v\":" + String(mq2V, 3) + ",";
+    jsonData += "\"mq7_raw\":" + String(mq7Raw) + ",";
+    jsonData += "\"mq7_v\":" + String(mq7V, 3) + ",";
+    jsonData += "\"mq135_raw\":" + String(mq135Raw) + ",";
+    jsonData += "\"mq135_v\":" + String(mq135V, 3) + ",";
+    jsonData += "\"risk\":\"" + risk + "\",";
+    jsonData += "\"survival_time_min\":" + String(survivalTime, 1);
+    jsonData += "}";
+
+    Serial.println("\nSending to server: " + jsonData);
+
+    // Send data to API
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      http.begin(serverName);
+      http.addHeader("Content-Type", "application/json");
+
+      int httpResponseCode = http.POST(jsonData);
+
+      if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.println("Response: " + response);
+      } else {
+        Serial.println("Error in sending POST: " + String(httpResponseCode));
+      }
+
+      http.end();
+    } else {
+      Serial.println("WiFi Disconnected!");
+    }
+
+    delay(4000);
+  }
+
+  while (1); // stop after 100 samples
+} I NEED IT IN SNPRINTF AND IN THE JSON PART YOU PROVIDED I NEED ONLY DEVICE ID VALUE1 ,VALUE2,VALUE 3
