@@ -1,0 +1,79 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// WiFi Credentials
+const char* ssid = "SAIRAM";
+const char* password = "";
+
+// API endpoint
+const char* serverName = "https://procrastinative-humbly-jimmie.ngrok-free.dev/senddata";
+
+// Sensor pins
+const int mq2Pin = 33;    // MQ-2
+const int mq7Pin = 32;    // MQ-7
+const int mq135Pin = 34;  // MQ-135
+
+const int numSamples = 100;
+
+// Device ID
+const char* deviceID = "ESP32_01";
+
+void setup() {
+  Serial.begin(115200);
+  analogReadResolution(12);  // 12-bit ADC (0–4095)
+  delay(1000);
+
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nConnected! IP: " + WiFi.localIP().toString());
+}
+
+void loop() {
+  for (int i = 1; i <= numSamples; i++) {
+    // Read raw sensor values
+    int mq2Raw = analogRead(mq2Pin);
+    int mq7Raw = analogRead(mq7Pin);
+    int mq135Raw = analogRead(mq135Pin);
+    mq135Raw=mq135Raw+100;
+
+    // Create JSON payload using snprintf
+    char jsonData[200];
+    snprintf(jsonData, sizeof(jsonData),
+             "{\"device_id\":\"%s\",\"value1\":%d,\"value2\":%d,\"value3\":%d}",
+             deviceID, mq2Raw, mq7Raw, mq135Raw);
+
+    Serial.println("\nSending JSON to server:");
+    Serial.println(jsonData);
+
+    // Send data to API
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      http.begin(serverName);
+      http.addHeader("Content-Type", "application/json");
+
+      int httpResponseCode = http.POST((uint8_t*)jsonData, strlen(jsonData));
+
+      if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.println("Server Response: " + response);
+      } else {
+        Serial.print("Error sending POST: ");
+        Serial.println(httpResponseCode);
+      }
+
+      http.end();
+    } else {
+      Serial.println("WiFi Disconnected!");
+    }
+
+    delay(4000); // Delay between readings
+  }
+
+  while (1); // stop after 100 samples
+}
